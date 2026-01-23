@@ -791,47 +791,96 @@
       const moves = [];
       const isKing = piece.includes('King');
       const color = piece.startsWith('white') ? 'white' : 'black';
+      const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
-      // Directions: forward for normal pieces, all for kings
-      let directions;
+      // For regular pieces: forward directions only
+      let moveDirections;
       if (isKing) {
-        directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+        moveDirections = directions;
       } else if (color === 'white') {
-        directions = [[-1, -1], [-1, 1]]; // White moves up
+        moveDirections = [[-1, -1], [-1, 1]]; // White moves up
       } else {
-        directions = [[1, -1], [1, 1]]; // Black moves down
+        moveDirections = [[1, -1], [1, 1]]; // Black moves down
       }
 
-      // Check for captures first (all directions for captures)
-      const captureDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
       let hasCaptures = false;
 
-      for (const [dr, dc] of captureDirections) {
-        const midRow = row + dr;
-        const midCol = col + dc;
-        const endRow = row + dr * 2;
-        const endCol = col + dc * 2;
+      if (isKing) {
+        // King captures: can capture from distance
+        for (const [dr, dc] of directions) {
+          let r = row + dr;
+          let c = col + dc;
+          let foundEnemy = null;
 
-        if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
-          const midPiece = currentBoard[midRow][midCol];
-          const endCell = currentBoard[endRow][endCol];
+          while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            const cell = currentBoard[r][c];
 
-          if (midPiece && !midPiece.startsWith(color) && !endCell) {
-            moves.push({ row: endRow, col: endCol, isCapture: true });
-            hasCaptures = true;
+            if (cell) {
+              if (cell.startsWith(color)) {
+                // Own piece - stop
+                break;
+              } else if (foundEnemy) {
+                // Second enemy - stop
+                break;
+              } else {
+                // Found enemy
+                foundEnemy = { row: r, col: c };
+              }
+            } else if (foundEnemy) {
+              // Empty cell after enemy - can land here
+              moves.push({ row: r, col: c, isCapture: true, captured: foundEnemy });
+              hasCaptures = true;
+            }
+
+            r += dr;
+            c += dc;
+          }
+        }
+      } else {
+        // Regular piece captures (all directions allowed for capture)
+        for (const [dr, dc] of directions) {
+          const midRow = row + dr;
+          const midCol = col + dc;
+          const endRow = row + dr * 2;
+          const endCol = col + dc * 2;
+
+          if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
+            const midPiece = currentBoard[midRow][midCol];
+            const endCell = currentBoard[endRow][endCol];
+
+            if (midPiece && !midPiece.startsWith(color) && !endCell) {
+              moves.push({ row: endRow, col: endCol, isCapture: true });
+              hasCaptures = true;
+            }
           }
         }
       }
 
       // If no captures, add simple moves
       if (!hasCaptures && !mustContinueFrom) {
-        for (const [dr, dc] of directions) {
-          const newRow = row + dr;
-          const newCol = col + dc;
+        if (isKing) {
+          // King moves: any distance diagonally
+          for (const [dr, dc] of directions) {
+            let r = row + dr;
+            let c = col + dc;
 
-          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-            if (!currentBoard[newRow][newCol]) {
-              moves.push({ row: newRow, col: newCol, isCapture: false });
+            while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+              if (currentBoard[r][c]) break; // Stop at any piece
+              moves.push({ row: r, col: c, isCapture: false });
+              r += dr;
+              c += dc;
+            }
+          }
+        } else {
+          // Regular piece moves: one step forward
+          for (const [dr, dc] of moveDirections) {
+            const newRow = row + dr;
+            const newCol = col + dc;
+
+            if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+              if (!currentBoard[newRow][newCol]) {
+                moves.push({ row: newRow, col: newCol, isCapture: false });
+              }
             }
           }
         }

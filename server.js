@@ -133,34 +133,8 @@ io.on('connection', (socket) => {
     const colDiff = to.col - from.col;
     const isKing = piece.includes('King');
 
-    // Check if move is valid
-    let isCapture = false;
-    let capturedRow, capturedCol;
-
-    if (Math.abs(rowDiff) === 2 && Math.abs(colDiff) === 2) {
-      // Capture move
-      capturedRow = from.row + rowDiff / 2;
-      capturedCol = from.col + colDiff / 2;
-      const capturedPiece = game.board[capturedRow][capturedCol];
-
-      if (!capturedPiece || capturedPiece.startsWith(socket.playerColor)) {
-        socket.emit('error', 'Неверный ход!');
-        return;
-      }
-      isCapture = true;
-    } else if (Math.abs(rowDiff) === 1 && Math.abs(colDiff) === 1) {
-      // Simple move - check direction for non-kings
-      if (!isKing) {
-        if (socket.playerColor === 'white' && rowDiff > 0) {
-          socket.emit('error', 'Шашки ходят только вперёд!');
-          return;
-        }
-        if (socket.playerColor === 'black' && rowDiff < 0) {
-          socket.emit('error', 'Шашки ходят только вперёд!');
-          return;
-        }
-      }
-    } else {
+    // Check diagonal movement
+    if (Math.abs(rowDiff) !== Math.abs(colDiff) || rowDiff === 0) {
       socket.emit('error', 'Неверный ход!');
       return;
     }
@@ -170,6 +144,65 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Клетка занята!');
       return;
     }
+
+    // Check path and find captured piece
+    let isCapture = false;
+    let capturedRow, capturedCol;
+    const dr = rowDiff > 0 ? 1 : -1;
+    const dc = colDiff > 0 ? 1 : -1;
+    const distance = Math.abs(rowDiff);
+
+    // Scan path for pieces
+    let enemyFound = null;
+    for (let i = 1; i < distance; i++) {
+      const r = from.row + dr * i;
+      const c = from.col + dc * i;
+      const pathPiece = game.board[r][c];
+
+      if (pathPiece) {
+        if (pathPiece.startsWith(socket.playerColor)) {
+          socket.emit('error', 'Путь заблокирован!');
+          return;
+        }
+        if (enemyFound) {
+          socket.emit('error', 'Нельзя перепрыгнуть две шашки!');
+          return;
+        }
+        enemyFound = { row: r, col: c };
+      }
+    }
+
+    if (enemyFound) {
+      isCapture = true;
+      capturedRow = enemyFound.row;
+      capturedCol = enemyFound.col;
+    }
+
+    // Validate move based on piece type
+    if (!isKing) {
+      // Regular piece: only 1 step forward or 2 steps for capture
+      if (distance === 1) {
+        // Simple move - check direction
+        if (socket.playerColor === 'white' && rowDiff > 0) {
+          socket.emit('error', 'Шашки ходят только вперёд!');
+          return;
+        }
+        if (socket.playerColor === 'black' && rowDiff < 0) {
+          socket.emit('error', 'Шашки ходят только вперёд!');
+          return;
+        }
+      } else if (distance === 2) {
+        // Must be a capture
+        if (!isCapture) {
+          socket.emit('error', 'Неверный ход!');
+          return;
+        }
+      } else {
+        socket.emit('error', 'Неверный ход!');
+        return;
+      }
+    }
+    // Kings can move any distance
 
     // Make the move
     game.board[from.row][from.col] = null;
@@ -237,27 +270,53 @@ function hasCaptures(board, row, col, color) {
   if (!piece) return false;
 
   const isKing = piece.includes('King');
-  const directions = isKing
-    ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-    : color === 'white'
-      ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] // Allow backward captures
-      : [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
-  for (const [dr, dc] of directions) {
-    const midRow = row + dr;
-    const midCol = col + dc;
-    const endRow = row + dr * 2;
-    const endCol = col + dc * 2;
+  if (isKing) {
+    // King: can capture from distance
+    for (const [dr, dc] of directions) {
+      let r = row + dr;
+      let c = col + dc;
+      let foundEnemy = false;
 
-    if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
-      const midPiece = board[midRow][midCol];
-      const endCell = board[endRow][endCol];
+      while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+        const cell = board[r][c];
 
-      if (midPiece && !midPiece.startsWith(color) && !endCell) {
-        return true;
+        if (cell) {
+          if (cell.startsWith(color)) {
+            break; // Own piece - stop
+          } else if (foundEnemy) {
+            break; // Second enemy - stop
+          } else {
+            foundEnemy = true; // Found first enemy
+          }
+        } else if (foundEnemy) {
+          return true; // Empty cell after enemy - can capture
+        }
+
+        r += dr;
+        c += dc;
+      }
+    }
+  } else {
+    // Regular piece: capture only adjacent
+    for (const [dr, dc] of directions) {
+      const midRow = row + dr;
+      const midCol = col + dc;
+      const endRow = row + dr * 2;
+      const endCol = col + dc * 2;
+
+      if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
+        const midPiece = board[midRow][midCol];
+        const endCell = board[endRow][endCol];
+
+        if (midPiece && !midPiece.startsWith(color) && !endCell) {
+          return true;
+        }
       }
     }
   }
+
   return false;
 }
 
