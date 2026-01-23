@@ -241,6 +241,8 @@
       justify-content: center;
       cursor: pointer;
       position: relative;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .cell.light {
@@ -266,6 +268,7 @@
       background: rgba(255, 255, 255, 0.5);
       border-radius: 50%;
       position: absolute;
+      pointer-events: none;
     }
 
     .cell.last-move {
@@ -673,6 +676,16 @@
 
     socket.on('error', (msg) => {
       showMessage(msg, 'error');
+      // Re-render to show current state
+      renderBoard();
+    });
+
+    socket.on('connect_error', () => {
+      showMessage('Ошибка соединения!', 'error');
+    });
+
+    socket.on('disconnect', () => {
+      showMessage('Соединение потеряно!', 'error');
     });
 
     // Update turn indicator
@@ -756,10 +769,18 @@
 
       // If clicking on possible move - make the move
       if (possibleMoves.some(m => m.row === row && m.col === col)) {
+        if (!socket.connected) {
+          showMessage('Нет соединения с сервером!', 'error');
+          return;
+        }
         socket.emit('makeMove', {
           from: selectedPiece,
           to: { row, col }
         });
+        // Clear selection immediately for better UX
+        selectedPiece = null;
+        possibleMoves = [];
+        renderBoard();
         return;
       }
 
