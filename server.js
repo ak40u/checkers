@@ -128,6 +128,14 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Check if must continue capture with specific piece
+    if (game.mustCapture) {
+      if (from.row !== game.mustCapture.row || from.col !== game.mustCapture.col) {
+        socket.emit('error', 'Нужно продолжить бить этой шашкой!');
+        return;
+      }
+    }
+
     // Calculate move
     const rowDiff = to.row - from.row;
     const colDiff = to.col - from.col;
@@ -243,8 +251,8 @@ io.on('connection', (socket) => {
       game.mustCapture = { row: to.row, col: to.col };
     }
 
-    // Check for win
-    const winner = checkWinner(game.board);
+    // Check for win (check if next player can move)
+    const winner = checkWinner(game.board, game.currentTurn);
 
     // Broadcast updated state
     io.to(socket.roomCode).emit('gameUpdate', {
@@ -341,8 +349,51 @@ function anyPieceCanCapture(board, color) {
   return false;
 }
 
+// Check if player has any valid moves
+function hasAnyMoves(board, color) {
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const piece = board[row][col];
+      if (!piece || !piece.startsWith(color)) continue;
+
+      const isKing = piece.includes('King');
+      const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+      // Check captures (all directions)
+      if (hasCaptures(board, row, col, color)) {
+        return true;
+      }
+
+      // Check simple moves
+      const moveDirections = isKing ? directions :
+        (color === 'white' ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]]);
+
+      if (isKing) {
+        // King can move any distance
+        for (const [dr, dc] of directions) {
+          const newRow = row + dr;
+          const newCol = col + dc;
+          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !board[newRow][newCol]) {
+            return true;
+          }
+        }
+      } else {
+        // Regular piece moves forward
+        for (const [dr, dc] of moveDirections) {
+          const newRow = row + dr;
+          const newCol = col + dc;
+          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !board[newRow][newCol]) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Check for winner
-function checkWinner(board) {
+function checkWinner(board, currentTurn) {
   let whiteCount = 0;
   let blackCount = 0;
 
@@ -354,8 +405,15 @@ function checkWinner(board) {
     }
   }
 
+  // No pieces left
   if (whiteCount === 0) return 'black';
   if (blackCount === 0) return 'white';
+
+  // Check if current player can move (if not, they lose)
+  if (!hasAnyMoves(board, currentTurn)) {
+    return currentTurn === 'white' ? 'black' : 'white';
+  }
+
   return null;
 }
 
