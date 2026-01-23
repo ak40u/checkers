@@ -54,7 +54,8 @@ io.on('connection', (socket) => {
         white: { id: socket.id, name: playerName || 'Игрок 1' },
         black: null
       },
-      mustCapture: null // Track if player must continue capturing
+      mustCapture: null, // Track if player must continue capturing
+      finished: false // Game over flag
     };
     games.set(roomCode, game);
     socket.join(roomCode);
@@ -115,6 +116,22 @@ io.on('connection', (socket) => {
   socket.on('makeMove', ({ from, to }) => {
     const game = games.get(socket.roomCode);
     if (!game) return;
+
+    // Check if game is already finished
+    if (game.finished) {
+      socket.emit('error', 'Игра уже закончена!');
+      return;
+    }
+
+    // Validate input coordinates
+    if (!from || !to ||
+        typeof from.row !== 'number' || typeof from.col !== 'number' ||
+        typeof to.row !== 'number' || typeof to.col !== 'number' ||
+        from.row < 0 || from.row > 7 || from.col < 0 || from.col > 7 ||
+        to.row < 0 || to.row > 7 || to.col < 0 || to.col > 7) {
+      socket.emit('error', 'Неверные координаты!');
+      return;
+    }
 
     // Check if it's this player's turn
     if (game.currentTurn !== socket.playerColor) {
@@ -253,6 +270,11 @@ io.on('connection', (socket) => {
 
     // Check for win (check if next player can move)
     const winner = checkWinner(game.board, game.currentTurn);
+
+    // Mark game as finished if there's a winner
+    if (winner) {
+      game.finished = true;
+    }
 
     // Broadcast updated state
     io.to(socket.roomCode).emit('gameUpdate', {
