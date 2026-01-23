@@ -178,6 +178,12 @@ io.on('connection', (socket) => {
       capturedCol = enemyFound.col;
     }
 
+    // Check mandatory capture rule
+    if (!isCapture && anyPieceCanCapture(game.board, socket.playerColor)) {
+      socket.emit('error', 'Нужно бить!');
+      return;
+    }
+
     // Validate move based on piece type
     if (!isKing) {
       // Regular piece: only 1 step forward or 2 steps for capture
@@ -317,6 +323,21 @@ function hasCaptures(board, row, col, color) {
     }
   }
 
+  return false;
+}
+
+// Check if any piece of given color can capture
+function anyPieceCanCapture(board, color) {
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const piece = board[row][col];
+      if (piece && piece.startsWith(color)) {
+        if (hasCaptures(board, row, col, color)) {
+          return true;
+        }
+      }
+    }
+  }
   return false;
 }
 

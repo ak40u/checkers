@@ -783,6 +783,67 @@
       }
     }
 
+    // Check if a specific piece can capture
+    function pieceCanCapture(row, col, color) {
+      const piece = currentBoard[row][col];
+      if (!piece) return false;
+
+      const isKing = piece.includes('King');
+      const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+
+      if (isKing) {
+        for (const [dr, dc] of directions) {
+          let r = row + dr;
+          let c = col + dc;
+          let foundEnemy = false;
+
+          while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+            const cell = currentBoard[r][c];
+            if (cell) {
+              if (cell.startsWith(color)) break;
+              if (foundEnemy) break;
+              foundEnemy = true;
+            } else if (foundEnemy) {
+              return true;
+            }
+            r += dr;
+            c += dc;
+          }
+        }
+      } else {
+        for (const [dr, dc] of directions) {
+          const midRow = row + dr;
+          const midCol = col + dc;
+          const endRow = row + dr * 2;
+          const endCol = col + dc * 2;
+
+          if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
+            const midPiece = currentBoard[midRow]?.[midCol];
+            const endCell = currentBoard[endRow]?.[endCol];
+            if (midPiece && !midPiece.startsWith(color) && !endCell) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    // Check if any piece of color can capture
+    function anyPieceCanCapture(color) {
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const piece = currentBoard[row][col];
+          if (piece && piece.startsWith(color)) {
+            if (pieceCanCapture(row, col, color)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
     // Calculate possible moves for a piece
     function calculatePossibleMoves(row, col) {
       const piece = currentBoard[row][col];
@@ -803,6 +864,7 @@
         moveDirections = [[1, -1], [1, 1]]; // Black moves down
       }
 
+      // Check if this piece can capture
       let hasCaptures = false;
 
       if (isKing) {
@@ -856,8 +918,14 @@
         }
       }
 
-      // If no captures, add simple moves
+      // If this piece has no captures, check if ANY piece must capture
+      // If so, return empty (can't move this piece)
       if (!hasCaptures && !mustContinueFrom) {
+        if (anyPieceCanCapture(color)) {
+          return []; // Must capture with another piece
+        }
+
+        // No captures anywhere - add simple moves
         if (isKing) {
           // King moves: any distance diagonally
           for (const [dr, dc] of directions) {
