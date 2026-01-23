@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Шашки для Степана и Бабушки</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      color: white;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+
+    /* Menu Screen */
+    #menu {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    #menu h2 {
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 1.8em;
+    }
+
+    .menu-input {
+      width: 100%;
+      padding: 15px 20px;
+      font-size: 1.3em;
+      border: 3px solid #ddd;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .menu-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .menu-btn {
+      width: 100%;
+      padding: 18px 30px;
+      font-size: 1.4em;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 15px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .menu-btn:hover {
+      transform: scale(1.02);
+    }
+
+    .menu-btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-create {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+    }
+
+    .btn-join {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .divider {
+      color: #999;
+      margin: 25px 0;
+      font-size: 1.2em;
+    }
+
+    /* Waiting Screen */
+    #waiting {
+      display: none;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 450px;
+      width: 100%;
+    }
+
+    #waiting h2 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    .room-code {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-size: 3em;
+      font-weight: bold;
+      padding: 20px 40px;
+      border-radius: 15px;
+      margin: 20px 0;
+      letter-spacing: 10px;
+      display: inline-block;
+    }
+
+    .waiting-text {
+      color: #666;
+      font-size: 1.3em;
+      margin-top: 20px;
+    }
+
+    .waiting-text::after {
+      content: '';
+      animation: dots 1.5s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
+
+    /* Game Screen */
+    #game {
+      display: none;
+      text-align: center;
+    }
+
+    .game-info {
+      background: white;
+      border-radius: 15px;
+      padding: 15px 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+
+    .player-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .player {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .player.white-player {
+      background: #fff3e0;
+    }
+
+    .player.black-player {
+      background: #424242;
+      color: white;
+    }
+
+    .player.active {
+      box-shadow: 0 0 0 4px #4caf50;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 4px #4caf50; }
+      50% { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0.5); }
+    }
+
+    .player-indicator {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 3px solid #333;
+    }
+
+    .player-indicator.white {
+      background: #fff;
+    }
+
+    .player-indicator.black {
+      background: #333;
+    }
+
+    .turn-indicator {
+      font-size: 1.5em;
+      color: #333;
+      font-weight: bold;
+    }
+
+    /* Board */
+    .board-container {
+      display: inline-block;
+      padding: 15px;
+      background: #8b4513;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 2px;
+      background: #333;
+      padding: 2px;
+    }
+
+    .cell {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .cell.light {
+      background: #f0d9b5;
+    }
+
+    .cell.dark {
+      background: #b58863;
+    }
+
+    .cell.selected {
+      background: #7cb342 !important;
+    }
+
+    .cell.possible-move {
+      background: #aed581 !important;
+    }
+
+    .cell.possible-move::after {
+      content: '';
+      width: 20px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      position: absolute;
+    }
+
+    .cell.last-move {
+      box-shadow: inset 0 0 0 3px #ffc107;
+    }
+
+    /* Pieces */
+    .piece {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      position: relative;
+      transition: transform 0.15s;
+      cursor: pointer;
+    }
+
+    .piece:hover {
+      transform: scale(1.1);
+    }
+
+    .piece.white {
+      background: linear-gradient(145deg, #ffffff 0%, #e0e0e0 100%);
+      border: 3px solid #bdbdbd;
+      box-shadow:
+        inset 0 -5px 10px rgba(0,0,0,0.2),
+        0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .piece.black {
+      background: linear-gradient(145deg, #424242 0%, #212121 100%);
+      border: 3px solid #616161;
+      box-shadow:
+        inset 0 -5px 10px rgba(0,0,0,0.3),
+        0 5px 15px rgba(0,0,0,0.4);
+    }
+
+    .piece.king::after {
+      content: '♔';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 28px;
+    }
+
+    .piece.white.king::after {
+      color: #ffd700;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .piece.black.king::after {
+      color: #ffd700;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+
+    /* Messages */
+    .message {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 1.2em;
+      z-index: 100;
+      animation: slideDown 0.3s ease;
+    }
+
+    .message.error {
+      background: #f44336;
+    }
+
+    .message.success {
+      background: #4caf50;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    /* Win Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 50px;
+      border-radius: 20px;
+      text-align: center;
+      animation: scaleIn 0.3s ease;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .modal h2 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+
+    .modal .winner-emoji {
+      font-size: 5em;
+      margin: 20px 0;
+    }
+
+    .modal button {
+      padding: 15px 40px;
+      font-size: 1.3em;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.8em;
+      }
+
+      .cell {
+        width: 42px;
+        height: 42px;
+      }
+
+      .piece {
+        width: 36px;
+        height: 36px;
+      }
+
+      .piece.king::after {
+        font-size: 20px;
+      }
+
+      .player-info {
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Шашки</h1>
+
+  <!-- Menu Screen -->
+  <div id="menu">
+    <h2>Привет!</h2>
+    <input type="text" id="playerName" class="menu-input" placeholder="Твоё имя" maxlength="15">
+    <button class="menu-btn btn-create" onclick="createGame()">
+      Создать игру
+    </button>
+    <div class="divider">— или —</div>
+    <input type="text" id="roomCodeInput" class="menu-input" placeholder="Код игры" maxlength="4">
+    <button class="menu-btn btn-join" onclick="joinGame()">
+      Присоединиться
+    </button>
+  </div>
+
+  <!-- Waiting Screen -->
+  <div id="waiting">
+    <h2>Игра создана!</h2>
+    <p style="font-size: 1.2em; color: #666; margin-bottom: 10px;">
+      Скажи этот код второму игроку:
+    </p>
+    <div class="room-code" id="displayRoomCode">----</div>
+    <p class="waiting-text">Ждём второго игрока</p>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game">
+    <div class="game-info">
+      <div class="player-info">
+        <div class="player white-player" id="whitePlayer">
+          <div class="player-indicator white"></div>
+          <span id="whiteName">Белые</span>
+        </div>
+        <div class="turn-indicator" id="turnText">Ход белых</div>
+        <div class="player black-player" id="blackPlayer">
+          <div class="player-indicator black"></div>
+          <span id="blackName">Чёрные</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="board-container">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <!-- Win Modal -->
+  <div class="modal" id="winModal">
+    <div class="modal-content">
+      <h2 id="winnerText">Победа!</h2>
+      <div class="winner-emoji">🎉</div>
+      <button onclick="location.reload()">Играть снова</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    let myColor = null;
+    let currentBoard = null;
+    let selectedPiece = null;
+    let isMyTurn = false;
+    let possibleMoves = [];
+    let mustContinueFrom = null;
+
+    // DOM Elements
+    const menuEl = document.getElementById('menu');
+    const waitingEl = document.getElementById('waiting');
+    const gameEl = document.getElementById('game');
+    const boardEl = document.getElementById('board');
+
+    // Create game
+    function createGame() {
+      const name = document.getElementById('playerName').value.trim() || 'Игрок';
+      socket.emit('createGame', name);
+    }
+
+    // Join game
+    function joinGame() {
+      const code = document.getElementById('roomCodeInput').value.trim();
+      const name = document.getElementById('playerName').value.trim() || 'Игрок';
+
+      if (code.length !== 4) {
+        showMessage('Введите 4-значный код игры', 'error');
+        return;
+      }
+
+      socket.emit('joinGame', { roomCode: code, playerName: name });
+    }
+
+    // Socket events
+    socket.on('gameCreated', ({ roomCode, color, board }) => {
+      myColor = color;
+      currentBoard = board;
+      document.getElementById('displayRoomCode').textContent = roomCode;
+      menuEl.style.display = 'none';
+      waitingEl.style.display = 'block';
+    });
+
+    socket.on('gameJoined', ({ roomCode, color, board, opponentName }) => {
+      myColor = color;
+      currentBoard = board;
+      menuEl.style.display = 'none';
+    });
+
+    socket.on('opponentJoined', ({ opponentName }) => {
+      showMessage(`${opponentName} присоединился!`, 'success');
+    });
+
+    socket.on('gameStart', ({ board, currentTurn, whiteName, blackName }) => {
+      currentBoard = board;
+      menuEl.style.display = 'none';
+      waitingEl.style.display = 'none';
+      gameEl.style.display = 'block';
+
+      document.getElementById('whiteName').textContent = whiteName;
+      document.getElementById('blackName').textContent = blackName;
+
+      isMyTurn = (currentTurn === myColor);
+      updateTurnIndicator(currentTurn);
+      renderBoard();
+    });
+
+    socket.on('gameUpdate', ({ board, currentTurn, lastMove, captured, mustContinue, winner }) => {
+      currentBoard = board;
+      isMyTurn = (currentTurn === myColor);
+      mustContinueFrom = mustContinue;
+      selectedPiece = null;
+      possibleMoves = [];
+
+      updateTurnIndicator(currentTurn);
+      renderBoard(lastMove);
+
+      if (winner) {
+        showWinner(winner);
+      }
+    });
+
+    socket.on('opponentLeft', () => {
+      showMessage('Соперник отключился', 'error');
+      setTimeout(() => location.reload(), 2000);
+    });
+
+    socket.on('error', (msg) => {
+      showMessage(msg, 'error');
+    });
+
+    // Update turn indicator
+    function updateTurnIndicator(turn) {
+      const whitePlayer = document.getElementById('whitePlayer');
+      const blackPlayer = document.getElementById('blackPlayer');
+      const turnText = document.getElementById('turnText');
+
+      whitePlayer.classList.toggle('active', turn === 'white');
+      blackPlayer.classList.toggle('active', turn === 'black');
+
+      if (turn === myColor) {
+        turnText.textContent = 'Твой ход!';
+        turnText.style.color = '#4caf50';
+      } else {
+        turnText.textContent = turn === 'white' ? 'Ход белых' : 'Ход чёрных';
+        turnText.style.color = '#333';
+      }
+    }
+
+    // Render the board
+    function renderBoard(lastMove = null) {
+      boardEl.innerHTML = '';
+
+      // Flip board for black player
+      const rows = myColor === 'black' ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+      const cols = myColor === 'black' ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+
+      for (const row of rows) {
+        for (const col of cols) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.className += (row + col) % 2 === 0 ? ' light' : ' dark';
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+
+          // Highlight last move
+          if (lastMove) {
+            if ((row === lastMove.from.row && col === lastMove.from.col) ||
+                (row === lastMove.to.row && col === lastMove.to.col)) {
+              cell.classList.add('last-move');
+            }
+          }
+
+          // Highlight selected piece
+          if (selectedPiece && selectedPiece.row === row && selectedPiece.col === col) {
+            cell.classList.add('selected');
+          }
+
+          // Highlight possible moves
+          if (possibleMoves.some(m => m.row === row && m.col === col)) {
+            cell.classList.add('possible-move');
+          }
+
+          // Add piece if exists
+          const piece = currentBoard[row][col];
+          if (piece) {
+            const pieceEl = document.createElement('div');
+            pieceEl.className = 'piece';
+            pieceEl.className += piece.startsWith('white') ? ' white' : ' black';
+            if (piece.includes('King')) {
+              pieceEl.classList.add('king');
+            }
+            cell.appendChild(pieceEl);
+          }
+
+          cell.addEventListener('click', () => handleCellClick(row, col));
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    // Handle cell click
+    function handleCellClick(row, col) {
+      if (!isMyTurn) {
+        showMessage('Сейчас не твой ход!', 'error');
+        return;
+      }
+
+      const piece = currentBoard[row][col];
+
+      // If clicking on possible move - make the move
+      if (possibleMoves.some(m => m.row === row && m.col === col)) {
+        socket.emit('makeMove', {
+          from: selectedPiece,
+          to: { row, col }
+        });
+        return;
+      }
+
+      // If must continue capturing with specific piece
+      if (mustContinueFrom) {
+        if (row !== mustContinueFrom.row || col !== mustContinueFrom.col) {
+          showMessage('Нужно продолжить бить!', 'error');
+          return;
+        }
+      }
+
+      // If clicking on own piece - select it
+      if (piece && piece.startsWith(myColor)) {
+        selectedPiece = { row, col };
+        possibleMoves = calculatePossibleMoves(row, col);
+        renderBoard();
+      } else {
+        selectedPiece = null;
+        possibleMoves = [];
+        renderBoard();
+      }
+    }
+
+    // Calculate possible moves for a piece
+    function calculatePossibleMoves(row, col) {
+      const piece = currentBoard[row][col];
+      if (!piece) return [];
+
+      const moves = [];
+      const isKing = piece.includes('King');
+      const color = piece.startsWith('white') ? 'white' : 'black';
+
+      // Directions: forward for normal pieces, all for kings
+      let directions;
+      if (isKing) {
+        directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+      } else if (color === 'white') {
+        directions = [[-1, -1], [-1, 1]]; // White moves up
+      } else {
+        directions = [[1, -1], [1, 1]]; // Black moves down
+      }
+
+      // Check for captures first (all directions for captures)
+      const captureDirections = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+      let hasCaptures = false;
+
+      for (const [dr, dc] of captureDirections) {
+        const midRow = row + dr;
+        const midCol = col + dc;
+        const endRow = row + dr * 2;
+        const endCol = col + dc * 2;
+
+        if (endRow >= 0 && endRow < 8 && endCol >= 0 && endCol < 8) {
+          const midPiece = currentBoard[midRow][midCol];
+          const endCell = currentBoard[endRow][endCol];
+
+          if (midPiece && !midPiece.startsWith(color) && !endCell) {
+            moves.push({ row: endRow, col: endCol, isCapture: true });
+            hasCaptures = true;
+          }
+        }
+      }
+
+      // If no captures, add simple moves
+      if (!hasCaptures && !mustContinueFrom) {
+        for (const [dr, dc] of directions) {
+          const newRow = row + dr;
+          const newCol = col + dc;
+
+          if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+            if (!currentBoard[newRow][newCol]) {
+              moves.push({ row: newRow, col: newCol, isCapture: false });
+            }
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    // Show message
+    function showMessage(text, type = 'info') {
+      const existing = document.querySelector('.message');
+      if (existing) existing.remove();
+
+      const msg = document.createElement('div');
+      msg.className = `message ${type}`;
+      msg.textContent = text;
+      document.body.appendChild(msg);
+
+      setTimeout(() => msg.remove(), 3000);
+    }
+
+    // Show winner
+    function showWinner(winner) {
+      const modal = document.getElementById('winModal');
+      const winnerText = document.getElementById('winnerText');
+
+      if (winner === myColor) {
+        winnerText.textContent = 'Ты победил!';
+      } else {
+        winnerText.textContent = 'Победил соперник';
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    // Handle Enter key
+    document.getElementById('roomCodeInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinGame();
+    });
+
+    document.getElementById('playerName').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const code = document.getElementById('roomCodeInput').value;
+        if (code.length === 4) {
+          joinGame();
+        } else {
+          createGame();
+        }
+      }
+    });
+
+    // Only allow numbers in room code
+    document.getElementById('roomCodeInput').addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    });
+  </script>
+</body>
+</html>
