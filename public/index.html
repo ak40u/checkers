@@ -497,6 +497,81 @@
   <script>
     const socket = io();
 
+    // Sound system using Web Audio API
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+      // Resume audio context (required for mobile browsers)
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      if (type === 'yourTurn') {
+        // Pleasant bell-like sound for "your turn"
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        oscillator.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1); // C#6
+        oscillator.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.2); // E6
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialDecayTo && gainNode.gain.exponentialDecayTo(0.01, audioCtx.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+      } else if (type === 'move') {
+        // Short click for piece move
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.1);
+      } else if (type === 'capture') {
+        // Satisfying pop for capture
+        oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+        oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.15);
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.15);
+      } else if (type === 'win') {
+        // Victory fanfare
+        playNote(523, 0, 0.2);    // C5
+        playNote(659, 0.15, 0.2); // E5
+        playNote(784, 0.3, 0.2);  // G5
+        playNote(1047, 0.45, 0.4); // C6
+        return;
+      } else if (type === 'lose') {
+        // Sad sound for losing
+        oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+        oscillator.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.5);
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+      }
+    }
+
+    function playNote(freq, delay, duration) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + duration);
+    }
+
     let myColor = null;
     let currentBoard = null;
     let selectedPiece = null;
@@ -545,6 +620,7 @@
     });
 
     socket.on('opponentJoined', ({ opponentName }) => {
+      playSound('yourTurn');
       showMessage(`${opponentName} присоединился!`, 'success');
     });
 
@@ -563,11 +639,24 @@
     });
 
     socket.on('gameUpdate', ({ board, currentTurn, lastMove, captured, mustContinue, winner }) => {
+      const wasMyTurn = isMyTurn;
       currentBoard = board;
       isMyTurn = (currentTurn === myColor);
       mustContinueFrom = mustContinue;
       selectedPiece = null;
       possibleMoves = [];
+
+      // Play sounds
+      if (captured) {
+        playSound('capture');
+      } else if (lastMove) {
+        playSound('move');
+      }
+
+      // Play "your turn" sound when turn switches to this player
+      if (isMyTurn && !wasMyTurn && !winner) {
+        setTimeout(() => playSound('yourTurn'), 200);
+      }
 
       updateTurnIndicator(currentTurn);
       renderBoard(lastMove);
@@ -771,8 +860,10 @@
 
       if (winner === myColor) {
         winnerText.textContent = 'Ты победил!';
+        playSound('win');
       } else {
         winnerText.textContent = 'Победил соперник';
+        playSound('lose');
       }
 
       modal.style.display = 'flex';
