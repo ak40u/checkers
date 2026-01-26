@@ -4,7 +4,8 @@
   "description": "Simple online checkers game for Stepan and Grandma",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test/king-logic.test.js && node test/server-validation.test.js"
   },
   "dependencies": {
     "express": "^4.18.2",
