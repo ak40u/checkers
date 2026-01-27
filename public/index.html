@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Шашки для Степана и Бабушки</title>
+  <title>Checkers Online</title>
   <style>
     * {
       box-sizing: border-box;
@@ -440,30 +440,24 @@
   </style>
 </head>
 <body>
-  <h1>Шашки</h1>
+  <h1 id="pageTitle"></h1>
 
   <!-- Menu Screen -->
   <div id="menu">
-    <h2>Привет!</h2>
-    <input type="text" id="playerName" class="menu-input" placeholder="Твоё имя" maxlength="15">
-    <button class="menu-btn btn-create" onclick="createGame()">
-      Создать игру
-    </button>
-    <div class="divider">— или —</div>
-    <input type="text" id="roomCodeInput" class="menu-input" placeholder="Код игры" maxlength="4">
-    <button class="menu-btn btn-join" onclick="joinGame()">
-      Присоединиться
-    </button>
+    <h2 id="menuHello"></h2>
+    <input type="text" id="playerName" class="menu-input" maxlength="15">
+    <button class="menu-btn btn-create" onclick="createGame()" id="btnCreate"></button>
+    <div class="divider" id="dividerOr"></div>
+    <input type="text" id="roomCodeInput" class="menu-input" maxlength="4">
+    <button class="menu-btn btn-join" onclick="joinGame()" id="btnJoin"></button>
   </div>
 
   <!-- Waiting Screen -->
   <div id="waiting">
-    <h2>Игра создана!</h2>
-    <p style="font-size: 1.2em; color: #666; margin-bottom: 10px;">
-      Скажи этот код второму игроку:
-    </p>
+    <h2 id="waitingTitle"></h2>
+    <p style="font-size: 1.2em; color: #666; margin-bottom: 10px;" id="waitingTellCode"></p>
     <div class="room-code" id="displayRoomCode">----</div>
-    <p class="waiting-text">Ждём второго игрока</p>
+    <p class="waiting-text" id="waitingText"></p>
   </div>
 
   <!-- Game Screen -->
@@ -472,12 +466,12 @@
       <div class="player-info">
         <div class="player white-player" id="whitePlayer">
           <div class="player-indicator white"></div>
-          <span id="whiteName">Белые</span>
+          <span id="whiteName"></span>
         </div>
-        <div class="turn-indicator" id="turnText">Ход белых</div>
+        <div class="turn-indicator" id="turnText"></div>
         <div class="player black-player" id="blackPlayer">
           <div class="player-indicator black"></div>
-          <span id="blackName">Чёрные</span>
+          <span id="blackName"></span>
         </div>
       </div>
     </div>
@@ -490,14 +484,117 @@
   <!-- Win Modal -->
   <div class="modal" id="winModal">
     <div class="modal-content">
-      <h2 id="winnerText">Победа!</h2>
+      <h2 id="winnerText"></h2>
       <div class="winner-emoji">🎉</div>
-      <button onclick="location.reload()">Играть снова</button>
+      <button onclick="location.reload()" id="btnPlayAgain"></button>
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // Language detection and i18n
+    const userLang = navigator.language || navigator.userLanguage;
+    const isRussian = userLang.startsWith('ru');
+
+    const i18n = {
+      ru: {
+        title: 'Шашки',
+        hello: 'Привет!',
+        yourName: 'Ваше имя',
+        createGame: 'Создать игру',
+        or: '— или —',
+        gameCode: 'Код игры',
+        join: 'Присоединиться',
+        gameCreated: 'Игра создана!',
+        tellCode: 'Скажите этот код второму игроку:',
+        waiting: 'Ждём второго игрока',
+        white: 'Белые',
+        black: 'Чёрные',
+        whiteTurn: 'Ход белых',
+        blackTurn: 'Ход чёрных',
+        yourTurn: 'Ваш ход!',
+        notYourTurn: 'Сейчас не ваш ход!',
+        mustContinue: 'Нужно продолжить бить!',
+        enterCode: 'Введите 4-значный код игры',
+        noConnection: 'Нет соединения с сервером!',
+        opponentLeft: 'Соперник отключился',
+        connectionError: 'Ошибка соединения!',
+        connectionLost: 'Соединение потеряно!',
+        youWin: 'Вы победили!',
+        opponentWins: 'Победил соперник',
+        playAgain: 'Играть снова',
+        playerJoined: 'присоединился!',
+        defaultName: 'Игрок',
+        // Server error codes
+        errors: {
+          GAME_NOT_FOUND: 'Игра не найдена. Проверьте код.',
+          GAME_FULL: 'Игра уже заполнена.',
+          GAME_OVER: 'Игра уже закончена!',
+          INVALID_COORDS: 'Неверные координаты!',
+          NOT_YOUR_TURN: 'Сейчас не ваш ход!',
+          NOT_YOUR_PIECE: 'Это не ваша шашка!',
+          MUST_CONTINUE: 'Нужно продолжить бить этой шашкой!',
+          INVALID_MOVE: 'Неверный ход!',
+          CELL_OCCUPIED: 'Клетка занята!',
+          PATH_BLOCKED: 'Путь заблокирован!',
+          CANT_JUMP_TWO: 'Нельзя перепрыгнуть две шашки!',
+          MUST_CAPTURE: 'Нужно бить!',
+          FORWARD_ONLY: 'Шашки ходят только вперёд!'
+        }
+      },
+      en: {
+        title: 'Checkers',
+        hello: 'Hello!',
+        yourName: 'Your name',
+        createGame: 'Create Game',
+        or: '— or —',
+        gameCode: 'Game code',
+        join: 'Join',
+        gameCreated: 'Game created!',
+        tellCode: 'Tell this code to the other player:',
+        waiting: 'Waiting for opponent',
+        white: 'White',
+        black: 'Black',
+        whiteTurn: "White's turn",
+        blackTurn: "Black's turn",
+        yourTurn: 'Your turn!',
+        notYourTurn: "It's not your turn!",
+        mustContinue: 'Must continue capturing!',
+        enterCode: 'Enter 4-digit game code',
+        noConnection: 'No server connection!',
+        opponentLeft: 'Opponent disconnected',
+        connectionError: 'Connection error!',
+        connectionLost: 'Connection lost!',
+        youWin: 'You won!',
+        opponentWins: 'Opponent wins',
+        playAgain: 'Play again',
+        playerJoined: 'joined!',
+        defaultName: 'Player',
+        // Server error codes
+        errors: {
+          GAME_NOT_FOUND: 'Game not found. Check the code.',
+          GAME_FULL: 'Game is already full.',
+          GAME_OVER: 'Game is already over!',
+          INVALID_COORDS: 'Invalid coordinates!',
+          NOT_YOUR_TURN: "It's not your turn!",
+          NOT_YOUR_PIECE: "That's not your piece!",
+          MUST_CONTINUE: 'Must continue capturing with this piece!',
+          INVALID_MOVE: 'Invalid move!',
+          CELL_OCCUPIED: 'Cell is occupied!',
+          PATH_BLOCKED: 'Path is blocked!',
+          CANT_JUMP_TWO: "Can't jump over two pieces!",
+          MUST_CAPTURE: 'Must capture!',
+          FORWARD_ONLY: 'Pieces can only move forward!'
+        }
+      }
+    };
+
+    const t = isRussian ? i18n.ru : i18n.en;
+
+    // Set page language and title
+    document.documentElement.lang = isRussian ? 'ru' : 'en';
+    document.title = t.title;
+
     const socket = io();
 
     // Sound system using Web Audio API
@@ -588,19 +685,37 @@
     const gameEl = document.getElementById('game');
     const boardEl = document.getElementById('board');
 
+    // Apply translations to static elements
+    function applyTranslations() {
+      document.getElementById('pageTitle').textContent = t.title;
+      document.getElementById('menuHello').textContent = t.hello;
+      document.getElementById('playerName').placeholder = t.yourName;
+      document.getElementById('btnCreate').textContent = t.createGame;
+      document.getElementById('dividerOr').textContent = t.or;
+      document.getElementById('roomCodeInput').placeholder = t.gameCode;
+      document.getElementById('btnJoin').textContent = t.join;
+      document.getElementById('waitingTitle').textContent = t.gameCreated;
+      document.getElementById('waitingTellCode').textContent = t.tellCode;
+      document.getElementById('waitingText').textContent = t.waiting;
+      document.getElementById('btnPlayAgain').textContent = t.playAgain;
+    }
+
+    // Apply translations on load
+    applyTranslations();
+
     // Create game
     function createGame() {
-      const name = document.getElementById('playerName').value.trim() || 'Игрок';
+      const name = document.getElementById('playerName').value.trim() || t.defaultName;
       socket.emit('createGame', name);
     }
 
     // Join game
     function joinGame() {
       const code = document.getElementById('roomCodeInput').value.trim();
-      const name = document.getElementById('playerName').value.trim() || 'Игрок';
+      const name = document.getElementById('playerName').value.trim() || t.defaultName;
 
       if (code.length !== 4) {
-        showMessage('Введите 4-значный код игры', 'error');
+        showMessage(t.enterCode, 'error');
         return;
       }
 
@@ -624,7 +739,7 @@
 
     socket.on('opponentJoined', ({ opponentName }) => {
       playSound('yourTurn');
-      showMessage(`${opponentName} присоединился!`, 'success');
+      showMessage(`${opponentName} ${t.playerJoined}`, 'success');
     });
 
     socket.on('gameStart', ({ board, currentTurn, whiteName, blackName }) => {
@@ -670,22 +785,24 @@
     });
 
     socket.on('opponentLeft', () => {
-      showMessage('Соперник отключился', 'error');
+      showMessage(t.opponentLeft, 'error');
       setTimeout(() => location.reload(), 2000);
     });
 
-    socket.on('error', (msg) => {
+    socket.on('error', (code) => {
+      // Translate error code or show as-is if not found
+      const msg = t.errors[code] || code;
       showMessage(msg, 'error');
       // Re-render to show current state
       renderBoard();
     });
 
     socket.on('connect_error', () => {
-      showMessage('Ошибка соединения!', 'error');
+      showMessage(t.connectionError, 'error');
     });
 
     socket.on('disconnect', () => {
-      showMessage('Соединение потеряно!', 'error');
+      showMessage(t.connectionLost, 'error');
     });
 
     // Update turn indicator
@@ -698,10 +815,10 @@
       blackPlayer.classList.toggle('active', turn === 'black');
 
       if (turn === myColor) {
-        turnText.textContent = 'Твой ход!';
+        turnText.textContent = t.yourTurn;
         turnText.style.color = '#4caf50';
       } else {
-        turnText.textContent = turn === 'white' ? 'Ход белых' : 'Ход чёрных';
+        turnText.textContent = turn === 'white' ? t.whiteTurn : t.blackTurn;
         turnText.style.color = '#333';
       }
     }
@@ -761,7 +878,7 @@
     // Handle cell click
     function handleCellClick(row, col) {
       if (!isMyTurn) {
-        showMessage('Сейчас не твой ход!', 'error');
+        showMessage(t.notYourTurn, 'error');
         return;
       }
 
@@ -770,7 +887,7 @@
       // If clicking on possible move - make the move
       if (possibleMoves.some(m => m.row === row && m.col === col)) {
         if (!socket.connected) {
-          showMessage('Нет соединения с сервером!', 'error');
+          showMessage(t.noConnection, 'error');
           return;
         }
         socket.emit('makeMove', {
@@ -787,7 +904,7 @@
       // If must continue capturing with specific piece
       if (mustContinueFrom) {
         if (row !== mustContinueFrom.row || col !== mustContinueFrom.col) {
-          showMessage('Нужно продолжить бить!', 'error');
+          showMessage(t.mustContinue, 'error');
           return;
         }
       }
@@ -997,10 +1114,10 @@
       const winnerText = document.getElementById('winnerText');
 
       if (winner === myColor) {
-        winnerText.textContent = 'Ты победил!';
+        winnerText.textContent = t.youWin;
         playSound('win');
       } else {
-        winnerText.textContent = 'Победил соперник';
+        winnerText.textContent = t.opponentWins;
         playSound('lose');
       }
 

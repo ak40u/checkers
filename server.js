@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
       board: createInitialBoard(),
       currentTurn: 'white',
       players: {
-        white: { id: socket.id, name: playerName || 'Игрок 1' },
+        white: { id: socket.id, name: playerName || 'Player 1' },
         black: null
       },
       mustCapture: null, // Track if player must continue capturing
@@ -75,16 +75,16 @@ io.on('connection', (socket) => {
     const game = games.get(roomCode);
 
     if (!game) {
-      socket.emit('error', 'Игра не найдена. Проверьте код.');
+      socket.emit('error', 'GAME_NOT_FOUND');
       return;
     }
 
     if (game.players.black) {
-      socket.emit('error', 'Игра уже заполнена.');
+      socket.emit('error', 'GAME_FULL');
       return;
     }
 
-    game.players.black = { id: socket.id, name: playerName || 'Игрок 2' };
+    game.players.black = { id: socket.id, name: playerName || 'Player 2' };
     socket.join(roomCode);
     socket.roomCode = roomCode;
     socket.playerColor = 'black';
@@ -98,7 +98,7 @@ io.on('connection', (socket) => {
 
     // Notify first player that opponent joined
     io.to(game.players.white.id).emit('opponentJoined', {
-      opponentName: playerName || 'Игрок 2'
+      opponentName: playerName || 'Player 2'
     });
 
     // Start the game
@@ -119,7 +119,7 @@ io.on('connection', (socket) => {
 
     // Check if game is already finished
     if (game.finished) {
-      socket.emit('error', 'Игра уже закончена!');
+      socket.emit('error', 'GAME_OVER');
       return;
     }
 
@@ -129,26 +129,26 @@ io.on('connection', (socket) => {
         typeof to.row !== 'number' || typeof to.col !== 'number' ||
         from.row < 0 || from.row > 7 || from.col < 0 || from.col > 7 ||
         to.row < 0 || to.row > 7 || to.col < 0 || to.col > 7) {
-      socket.emit('error', 'Неверные координаты!');
+      socket.emit('error', 'INVALID_COORDS');
       return;
     }
 
     // Check if it's this player's turn
     if (game.currentTurn !== socket.playerColor) {
-      socket.emit('error', 'Сейчас не ваш ход!');
+      socket.emit('error', 'NOT_YOUR_TURN');
       return;
     }
 
     const piece = game.board[from.row][from.col];
     if (!piece || !piece.startsWith(socket.playerColor)) {
-      socket.emit('error', 'Это не ваша шашка!');
+      socket.emit('error', 'NOT_YOUR_PIECE');
       return;
     }
 
     // Check if must continue capture with specific piece
     if (game.mustCapture) {
       if (from.row !== game.mustCapture.row || from.col !== game.mustCapture.col) {
-        socket.emit('error', 'Нужно продолжить бить этой шашкой!');
+        socket.emit('error', 'MUST_CONTINUE');
         return;
       }
     }
@@ -160,13 +160,13 @@ io.on('connection', (socket) => {
 
     // Check diagonal movement
     if (Math.abs(rowDiff) !== Math.abs(colDiff) || rowDiff === 0) {
-      socket.emit('error', 'Неверный ход!');
+      socket.emit('error', 'INVALID_MOVE');
       return;
     }
 
     // Check if destination is empty
     if (game.board[to.row][to.col]) {
-      socket.emit('error', 'Клетка занята!');
+      socket.emit('error', 'CELL_OCCUPIED');
       return;
     }
 
@@ -186,11 +186,11 @@ io.on('connection', (socket) => {
 
       if (pathPiece) {
         if (pathPiece.startsWith(socket.playerColor)) {
-          socket.emit('error', 'Путь заблокирован!');
+          socket.emit('error', 'PATH_BLOCKED');
           return;
         }
         if (enemyFound) {
-          socket.emit('error', 'Нельзя перепрыгнуть две шашки!');
+          socket.emit('error', 'CANT_JUMP_TWO');
           return;
         }
         enemyFound = { row: r, col: c };
@@ -205,7 +205,7 @@ io.on('connection', (socket) => {
 
     // Check mandatory capture rule
     if (!isCapture && anyPieceCanCapture(game.board, socket.playerColor)) {
-      socket.emit('error', 'Нужно бить!');
+      socket.emit('error', 'MUST_CAPTURE');
       return;
     }
 
@@ -215,21 +215,21 @@ io.on('connection', (socket) => {
       if (distance === 1) {
         // Simple move - check direction
         if (socket.playerColor === 'white' && rowDiff > 0) {
-          socket.emit('error', 'Шашки ходят только вперёд!');
+          socket.emit('error', 'FORWARD_ONLY');
           return;
         }
         if (socket.playerColor === 'black' && rowDiff < 0) {
-          socket.emit('error', 'Шашки ходят только вперёд!');
+          socket.emit('error', 'FORWARD_ONLY');
           return;
         }
       } else if (distance === 2) {
         // Must be a capture
         if (!isCapture) {
-          socket.emit('error', 'Неверный ход!');
+          socket.emit('error', 'INVALID_MOVE');
           return;
         }
       } else {
-        socket.emit('error', 'Неверный ход!');
+        socket.emit('error', 'INVALID_MOVE');
         return;
       }
     }
