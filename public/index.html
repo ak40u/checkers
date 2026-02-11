@@ -552,6 +552,106 @@
       50% { transform: translateY(-10px); }
     }
 
+    /* Capture explosion animation */
+    .capture-explosion {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .capture-particle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: explode 0.6s ease-out forwards;
+    }
+
+    @keyframes explode {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    /* Piece appear animation */
+    .piece-appear {
+      animation: pieceAppear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes pieceAppear {
+      0% {
+        transform: scale(0) translateY(-20px);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* King promotion animation */
+    .piece-promoted {
+      animation: promoted 0.5s ease-out;
+    }
+
+    @keyframes promoted {
+      0%, 50% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+      25% {
+        transform: scale(1.3);
+        filter: brightness(1.5);
+      }
+      100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+    }
+
+    /* Confetti */
+    .confetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 300;
+      overflow: hidden;
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      animation: confettiFall linear forwards;
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translateY(-10px) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    /* Move indicator glow */
+    .cell.possible-move.capture-move::after {
+      background: rgba(239, 68, 68, 0.7);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+    }
+
     .modal button {
       padding: 16px 48px;
       font-size: 1.1em;
@@ -964,15 +1064,22 @@
 
     socket.on('gameUpdate', ({ board, currentTurn, lastMove, captured, mustContinue, winner }) => {
       const wasMyTurn = isMyTurn;
+      const oldBoard = currentBoard;
       currentBoard = board;
       isMyTurn = (currentTurn === myColor);
       mustContinueFrom = mustContinue;
       selectedPiece = null;
       possibleMoves = [];
 
-      // Play sounds
+      // Play sounds and effects
       if (captured) {
         playSound('capture');
+        // Determine captured piece color for explosion effect
+        const capturedColor = oldBoard && oldBoard[captured.row] && oldBoard[captured.row][captured.col];
+        if (capturedColor) {
+          const color = capturedColor.startsWith('white') ? 'white' : 'black';
+          setTimeout(() => createCaptureExplosion(captured.row, captured.col, color), 50);
+        }
       } else if (lastMove) {
         playSound('move');
       }
@@ -983,7 +1090,7 @@
       }
 
       updateTurnIndicator(currentTurn);
-      renderBoard(lastMove);
+      renderBoard(lastMove, captured);
 
       if (winner) {
         showWinner(winner);
@@ -1030,7 +1137,7 @@
     }
 
     // Render the board
-    function renderBoard(lastMove = null) {
+    function renderBoard(lastMove = null, captured = null) {
       boardEl.innerHTML = '';
 
       // Flip board for black player
@@ -1059,8 +1166,12 @@
           }
 
           // Highlight possible moves
-          if (possibleMoves.some(m => m.row === row && m.col === col)) {
+          const possibleMove = possibleMoves.find(m => m.row === row && m.col === col);
+          if (possibleMove) {
             cell.classList.add('possible-move');
+            if (possibleMove.isCapture) {
+              cell.classList.add('capture-move');
+            }
           }
 
           // Add piece if exists
@@ -1071,6 +1182,10 @@
             pieceEl.className += piece.startsWith('white') ? ' white' : ' black';
             if (piece.includes('King')) {
               pieceEl.classList.add('king');
+            }
+            // Add animation for newly placed piece
+            if (lastMove && lastMove.to.row === row && lastMove.to.col === col) {
+              pieceEl.classList.add('piece-appear');
             }
             cell.appendChild(pieceEl);
           }
@@ -1314,6 +1429,66 @@
       setTimeout(() => msg.remove(), 3000);
     }
 
+    // Create capture explosion effect
+    function createCaptureExplosion(row, col, pieceColor) {
+      const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+      if (!cell) return;
+
+      const rect = cell.getBoundingClientRect();
+      const explosion = document.createElement('div');
+      explosion.className = 'capture-explosion';
+      explosion.style.left = rect.left + rect.width / 2 - 30 + 'px';
+      explosion.style.top = rect.top + rect.height / 2 - 30 + 'px';
+      explosion.style.position = 'fixed';
+
+      const colors = pieceColor === 'white'
+        ? ['#f8fafc', '#cbd5e1', '#94a3b8', '#e2e8f0']
+        : ['#475569', '#334155', '#1e293b', '#64748b'];
+
+      for (let i = 0; i < 12; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'capture-particle';
+        const angle = (i / 12) * Math.PI * 2;
+        const distance = 30 + Math.random() * 20;
+        particle.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+        particle.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.left = '26px';
+        particle.style.top = '26px';
+        explosion.appendChild(particle);
+      }
+
+      document.body.appendChild(explosion);
+      setTimeout(() => explosion.remove(), 600);
+    }
+
+    // Create confetti effect
+    function createConfetti() {
+      const container = document.createElement('div');
+      container.className = 'confetti-container';
+
+      const colors = ['#6366f1', '#8b5cf6', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4'];
+
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+        confetti.style.animationDelay = Math.random() * 0.5 + 's';
+
+        const shapes = ['50%', '0%', '50% 0 50% 50%'];
+        confetti.style.borderRadius = shapes[Math.floor(Math.random() * shapes.length)];
+        confetti.style.width = (6 + Math.random() * 8) + 'px';
+        confetti.style.height = (6 + Math.random() * 8) + 'px';
+
+        container.appendChild(confetti);
+      }
+
+      document.body.appendChild(container);
+      setTimeout(() => container.remove(), 4000);
+    }
+
     // Show winner
     function showWinner(winner) {
       const modal = document.getElementById('winModal');
@@ -1322,6 +1497,7 @@
       if (winner === myColor) {
         winnerText.textContent = t.youWin;
         playSound('win');
+        createConfetti();
       } else {
         winnerText.textContent = t.opponentWins;
         playSound('lose');
