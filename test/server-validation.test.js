@@ -480,6 +480,28 @@ test('Promotion during capture', () => {
   assert(result.board[0][0] === 'whiteKing', 'Should be promoted after capture');
 });
 
+test('Promotion during capture STOPS turn (Russian checkers rule)', () => {
+  // Russian checkers: if a piece becomes a king during a capture, it STOPS
+  // It cannot continue capturing in the same turn
+  const board = createEmptyBoard();
+  board[2][2] = 'white';  // Regular piece
+  board[1][1] = 'black';  // First enemy - capturing this promotes white
+  board[1][3] = 'black';  // Second enemy - should NOT be capturable this turn
+
+  //   0 1 2 3 4 5 6 7
+  // 0 . . . . . . . .  <- white lands here and becomes king
+  // 1 . b . b . . . .  <- two black pieces
+  // 2 . . w . . . . .  <- white starts here
+
+  const result = executeMove(board, { row: 2, col: 2 }, { row: 0, col: 0 }, 'white');
+
+  assert(result.success, 'Capture should succeed');
+  assert(result.isCapture, 'Should be marked as capture');
+  assert(result.board[0][0] === 'whiteKing', 'Should be promoted to king');
+  assert(!result.canCaptureMore, 'Should NOT be able to continue capturing after promotion');
+  assert(result.mustContinueFrom === null, 'mustContinueFrom should be null after promotion');
+});
+
 // ============== RESULTS ==============
 
 console.log('\n=== RESULTS ===\n');

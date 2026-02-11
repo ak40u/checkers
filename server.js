@@ -240,11 +240,14 @@ io.on('connection', (socket) => {
 
     // Check for king promotion
     let newPiece = piece;
+    let wasPromoted = false;
     if (!isKing) {
       if (socket.playerColor === 'white' && to.row === 0) {
         newPiece = 'whiteKing';
+        wasPromoted = true;
       } else if (socket.playerColor === 'black' && to.row === 7) {
         newPiece = 'blackKing';
+        wasPromoted = true;
       }
     }
     game.board[to.row][to.col] = newPiece;
@@ -255,8 +258,9 @@ io.on('connection', (socket) => {
     }
 
     // Check for additional captures
+    // In Russian checkers: if piece was just promoted to king, it STOPS (no more captures this turn)
     let canCaptureMore = false;
-    if (isCapture) {
+    if (isCapture && !wasPromoted) {
       canCaptureMore = hasCaptures(game.board, to.row, to.col, socket.playerColor);
     }
 
